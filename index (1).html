@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Duluth Points of Interest | FDI World Dental Congress 2026</title>
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <!-- Google Fonts: Playfair Display (display) + Lora (body) — elegant, outdoorsy feel -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,400&family=Lora:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ============================================================
+       CSS VARIABLES — color palette inspired by Lake Superior,
+       pine forests, and Duluth's rocky shoreline
+    ============================================================ */
+    :root {
+      --pine:       #2d4a2d;   /* deep forest green */
+      --lake:       #3a6b8a;   /* Lake Superior blue */
+      --shore:      #c8b89a;   /* sandy/rocky shore tan */
+      --bark:       #5c3d1e;   /* warm brown bark */
+      --mist:       #e8ede8;   /* pale morning mist */
+      --gold:       #d4a843;   /* autumn birch gold */
+      --text-dark:  #1a2a1a;
+      --text-mid:   #4a5a4a;
+      --text-light: #f5f0e8;
+      --panel-bg:   #f7f4ee;
+      --shadow:     rgba(45, 74, 45, 0.18);
+    }
+
+    /* ============================================================
+       RESET & BASE
+    ============================================================ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Lora', Georgia, serif;
+      background-color: var(--pine);
+      color: var(--text-dark);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ============================================================
+       HEADER — full-width banner with wood-grain texture feel
+    ============================================================ */
+    header {
+      background: linear-gradient(135deg, var(--pine) 0%, #1a3020 40%, var(--bark) 100%);
+      color: var(--text-light);
+      padding: 14px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      border-bottom: 3px solid var(--gold);
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Subtle pine needle texture overlay on header */
+    header::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image: repeating-linear-gradient(
+        60deg,
+        transparent,
+        transparent 20px,
+        rgba(255,255,255,0.02) 20px,
+        rgba(255,255,255,0.02) 21px
+      );
+      pointer-events: none;
+    }
+
+    .header-left h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.6rem;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      line-height: 1.15;
+    }
+
+    .header-left h1 span {
+      color: var(--gold);
+    }
+
+    .header-left p {
+      font-family: 'Lora', serif;
+      font-style: italic;
+      font-size: 0.8rem;
+      color: var(--shore);
+      margin-top: 3px;
+      letter-spacing: 0.04em;
+    }
+
+    .header-right {
+      text-align: right;
+      font-size: 0.72rem;
+      color: var(--shore);
+      line-height: 1.5;
+      font-style: italic;
+    }
+
+    .header-right strong {
+      font-style: normal;
+      color: var(--gold);
+      font-size: 0.8rem;
+      letter-spacing: 0.05em;
+    }
+
+    /* ============================================================
+       MAIN LAYOUT — side panel + map
+    ============================================================ */
+    .app-body {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ============================================================
+       SIDE PANEL
+    ============================================================ */
+    #panel {
+      width: 340px;
+      flex-shrink: 0;
+      background: var(--panel-bg);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border-right: 1px solid var(--shore);
+      transition: width 0.3s ease;
+    }
+
+    /* Default "welcome" state of the panel */
+    #panel-welcome {
+      padding: 24px 20px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      overflow-y: auto;
+    }
+
+    #panel-welcome .welcome-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.3rem;
+      color: var(--pine);
+      border-bottom: 2px solid var(--gold);
+      padding-bottom: 8px;
+    }
+
+    #panel-welcome p {
+      font-size: 0.82rem;
+      color: var(--text-mid);
+      line-height: 1.7;
+    }
+
+    /* Legend */
+    .legend {
+      background: white;
+      border-radius: 6px;
+      padding: 14px;
+      border: 1px solid var(--shore);
+    }
+
+    .legend h3 {
+      font-family: 'Playfair Display', serif;
+      font-size: 0.9rem;
+      color: var(--pine);
+      margin-bottom: 10px;
+      letter-spacing: 0.04em;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 7px;
+      font-size: 0.78rem;
+      color: var(--text-mid);
+    }
+
+    .legend-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      border: 2px solid rgba(0,0,0,0.15);
+    }
+
+    /* ---- Detail view (shown when a marker is clicked) ---- */
+    #panel-detail {
+      display: none;
+      flex-direction: column;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    #panel-detail.active {
+      display: flex;
+    }
+
+    #detail-img-wrap {
+      width: 100%;
+      height: 200px;
+      overflow: hidden;
+      flex-shrink: 0;
+      position: relative;
+      background: var(--shore);
+    }
+
+    #detail-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.5s ease;
+    }
+
+    #detail-img:hover { transform: scale(1.04); }
+
+    /* Category badge overlaid on image */
+    #detail-category {
+      position: absolute;
+      bottom: 10px;
+      left: 12px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 0.65rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: white;
+      background: var(--pine);
+    }
+
+    #detail-body {
+      padding: 18px 20px;
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    #detail-name {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.25rem;
+      color: var(--pine);
+      line-height: 1.2;
+      margin-bottom: 6px;
+    }
+
+    #detail-address {
+      font-size: 0.72rem;
+      color: var(--text-mid);
+      font-style: italic;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    #detail-desc {
+      font-size: 0.82rem;
+      color: var(--text-dark);
+      line-height: 1.75;
+      border-top: 1px solid var(--shore);
+      padding-top: 12px;
+      margin-bottom: 16px;
+    }
+
+    #detail-link {
+      display: inline-block;
+      background: var(--pine);
+      color: var(--text-light);
+      text-decoration: none;
+      padding: 8px 18px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      letter-spacing: 0.07em;
+      font-family: 'Lora', serif;
+      transition: background 0.2s, transform 0.15s;
+      border: 1px solid var(--gold);
+    }
+
+    #detail-link:hover {
+      background: var(--bark);
+      transform: translateY(-1px);
+    }
+
+    /* Back button */
+    #btn-back {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--text-mid);
+      font-size: 0.75rem;
+      font-family: 'Lora', serif;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--shore);
+      width: 100%;
+      text-align: left;
+      transition: color 0.2s;
+    }
+
+    #btn-back:hover { color: var(--pine); }
+
+    /* ============================================================
+       MAP
+    ============================================================ */
+    #map {
+      flex: 1;
+      z-index: 1;
+    }
+
+    /* Custom Leaflet zoom control styling */
+    .leaflet-control-zoom a {
+      font-family: 'Lora', serif !important;
+      color: var(--pine) !important;
+    }
+
+    /* ============================================================
+       CUSTOM MARKER ICONS — colored circles with emoji
+    ============================================================ */
+    .custom-marker {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      border: 2.5px solid rgba(255,255,255,0.85);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+      font-size: 16px;
+      cursor: pointer;
+      transition: transform 0.15s;
+    }
+
+    .custom-marker:hover { transform: scale(1.2); }
+
+    /* Pulse animation on selected marker */
+    @keyframes pulse {
+      0%   { box-shadow: 0 0 0 0 rgba(212, 168, 67, 0.6); }
+      70%  { box-shadow: 0 0 0 10px rgba(212, 168, 67, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(212, 168, 67, 0); }
+    }
+
+    .marker-selected .custom-marker {
+      animation: pulse 1.2s infinite;
+    }
+
+    /* ============================================================
+       RESPONSIVE — collapse panel on small screens
+    ============================================================ */
+    @media (max-width: 640px) {
+      #panel { width: 100%; position: absolute; bottom: 0; z-index: 999;
+               height: 45%; border-right: none; border-top: 2px solid var(--gold); }
+      .app-body { flex-direction: column; }
+      #map { height: 55%; }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ============================================================
+       HEADER
+  ============================================================ -->
+  <header>
+    <div class="header-left">
+      <h1>Explore <span>Duluth</span></h1>
+      <p>Points of Interest for Conference Visitors</p>
+    </div>
+    <div class="header-right">
+      <strong>FDI World Dental Congress 2026</strong><br />
+      Duluth, Minnesota · Lake Superior's Gem
+    </div>
+  </header>
+
+  <!-- ============================================================
+       APP BODY: side panel + map
+  ============================================================ -->
+  <div class="app-body">
+
+    <!-- SIDE PANEL -->
+    <div id="panel">
+
+      <!-- Welcome view (shown before any marker is clicked) -->
+      <div id="panel-welcome">
+        <div class="welcome-title">Welcome to Duluth!</div>
+
+        <p>
+          Duluth sits perched above the western tip of Lake Superior — the largest
+          freshwater lake in the world by surface area. Whether you're here for the
+          FDI World Dental Congress or simply exploring, this map will guide you to
+          the city's most beloved attractions.
+        </p>
+
+        <p>
+          <strong>Click any marker</strong> on the map to learn more about that
+          location — including photos, descriptions, and links to plan your visit.
+        </p>
+
+        <!-- Legend -->
+        <div class="legend">
+          <h3>Map Legend</h3>
+          <div class="legend-item">
+            <div class="legend-dot" style="background:#3a6b8a;"></div>
+            Landmark
+          </div>
+          <div class="legend-item">
+            <div class="legend-dot" style="background:#2d4a2d;"></div>
+            Outdoor &amp; Recreation
+          </div>
+          <div class="legend-item">
+            <div class="legend-dot" style="background:#5c3d1e;"></div>
+            History &amp; Culture
+          </div>
+          <div class="legend-item">
+            <div class="legend-dot" style="background:#4a7c59;"></div>
+            Nature &amp; Wildlife
+          </div>
+        </div>
+
+        <p style="font-size:0.72rem; font-style:italic; color:#888; margin-top:auto;">
+          Map data © OpenStreetMap contributors
+        </p>
+      </div>
+
+      <!-- Detail view (shown after clicking a marker) -->
+      <div id="panel-detail">
+        <button id="btn-back">← Back to overview</button>
+
+        <div id="detail-img-wrap">
+          <img id="detail-img" src="" alt="" />
+          <span id="detail-category"></span>
+        </div>
+
+        <div id="detail-body">
+          <h2 id="detail-name"></h2>
+          <div id="detail-address"></div>
+          <p id="detail-desc"></p>
+          <a id="detail-link" href="#" target="_blank" rel="noopener">Visit Website →</a>
+        </div>
+      </div>
+
+    </div><!-- /panel -->
+
+    <!-- MAP -->
+    <div id="map"></div>
+
+  </div><!-- /app-body -->
+
+  <!-- ============================================================
+       LEAFLET JS
+  ============================================================ -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <script>
+    // ============================================================
+    // MAP INITIALIZATION
+    // Center on Duluth, MN with a zoom level showing the city
+    // ============================================================
+    const map = L.map('map', {
+      center: [46.7867, -92.1005],
+      zoom: 12,
+      zoomControl: true
+    });
+
+    // Basemap: Stamen Terrain gives an outdoorsy topographic look
+    // Falls back to OpenStreetMap if Stamen is unavailable
+    L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+      attribution: 'Map data: &copy; <a href="https://openstreetmap.org">OpenStreetMap</a> contributors, ' +
+                   '<a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; ' +
+                   '<a href="https://opentopomap.org">OpenTopoMap</a>',
+      maxZoom: 17
+    }).addTo(map);
+
+
+    // ============================================================
+    // CATEGORY CONFIG
+    // Each category gets a color and an emoji icon
+    // ============================================================
+    const categoryConfig = {
+      'Landmark': { color: '#3a6b8a', emoji: '🏛️' },
+      'Outdoor':  { color: '#2d4a2d', emoji: '🌲' },
+      'History':  { color: '#5c3d1e', emoji: '🚂' },
+      'Nature':   { color: '#4a7c59', emoji: '🦅' }
+    };
+
+
+    // ============================================================
+    // PANEL REFERENCES
+    // ============================================================
+    const panelWelcome = document.getElementById('panel-welcome');
+    const panelDetail  = document.getElementById('panel-detail');
+    const btnBack      = document.getElementById('btn-back');
+    const detailImg    = document.getElementById('detail-img');
+    const detailCat    = document.getElementById('detail-category');
+    const detailName   = document.getElementById('detail-name');
+    const detailAddr   = document.getElementById('detail-address');
+    const detailDesc   = document.getElementById('detail-desc');
+    const detailLink   = document.getElementById('detail-link');
+
+    // Track the currently selected marker layer so we can un-style it
+    let selectedLayer = null;
+
+
+    // ============================================================
+    // SHOW DETAIL PANEL
+    // Populates the side panel with data from a clicked feature
+    // ============================================================
+    function showDetail(props, config) {
+      // Hide welcome, show detail
+      panelWelcome.style.display = 'none';
+      panelDetail.classList.add('active');
+
+      // Populate fields
+      detailImg.src  = props.photo;
+      detailImg.alt  = props.name;
+      detailCat.textContent = props.category;
+      detailCat.style.background = config.color;
+      detailName.textContent = props.name;
+      detailAddr.textContent = '📍 ' + props.address;
+      detailDesc.textContent = props.description;
+      detailLink.href = props.website;
+      detailLink.textContent = 'Visit Website →';
+    }
+
+
+    // ============================================================
+    // BACK BUTTON — returns to welcome panel
+    // ============================================================
+    btnBack.addEventListener('click', () => {
+      panelDetail.classList.remove('active');
+      panelWelcome.style.display = 'flex';
+
+      // Remove selected styling from previous marker
+      if (selectedLayer) {
+        selectedLayer.getElement()?.classList.remove('marker-selected');
+        selectedLayer = null;
+      }
+    });
+
+
+    // ============================================================
+    // CREATE CUSTOM MARKER ICON
+    // Returns a Leaflet DivIcon styled as a colored circle with emoji
+    // ============================================================
+    function createIcon(category) {
+      const cfg = categoryConfig[category] || { color: '#555', emoji: '📍' };
+      return L.divIcon({
+        className: '',   // no default leaflet styling
+        html: `<div class="custom-marker"
+                    style="width:34px;height:34px;background:${cfg.color};">
+                 ${cfg.emoji}
+               </div>`,
+        iconSize: [34, 34],
+        iconAnchor: [17, 17],
+        popupAnchor: [0, -20]
+      });
+    }
+
+
+    // ============================================================
+    // LOAD GEOJSON DATA
+    // Uses fetch() to load attractions.geojson from the same folder
+    // ============================================================
+    fetch('attractions.geojson')
+      .then(response => {
+        if (!response.ok) throw new Error('Could not load GeoJSON data.');
+        return response.json();
+      })
+      .then(data => {
+
+        // Add all features to the map using L.geoJSON
+        L.geoJSON(data, {
+
+          // pointToLayer: swap default markers for our custom icons
+          pointToLayer: function(feature, latlng) {
+            const cat    = feature.properties.category;
+            const icon   = createIcon(cat);
+            const marker = L.marker(latlng, { icon });
+            return marker;
+          },
+
+          // onEachFeature: bind click events to open the side panel
+          onEachFeature: function(feature, layer) {
+            const props  = feature.properties;
+            const config = categoryConfig[props.category] || { color: '#555' };
+
+            layer.on('click', function() {
+              // Remove selected state from previous marker
+              if (selectedLayer && selectedLayer !== layer) {
+                selectedLayer.getElement()?.classList.remove('marker-selected');
+              }
+
+              // Apply selected state to this marker
+              layer.getElement()?.classList.add('marker-selected');
+              selectedLayer = layer;
+
+              // Pan map to the clicked point
+              map.panTo(layer.getLatLng());
+
+              // Populate and show the side panel
+              showDetail(props, config);
+            });
+          }
+
+        }).addTo(map);
+
+      })
+      .catch(err => {
+        // If fetch fails (e.g. running without a server), fall back to inline data
+        console.warn('GeoJSON fetch failed, using inline fallback.', err);
+        loadInlineFallback();
+      });
+
+
+    // ============================================================
+    // INLINE FALLBACK
+    // If the page is opened as a local file (file://) fetch() will
+    // fail due to CORS. This duplicates the GeoJSON inline so the
+    // map still works when opened directly in a browser.
+    // ============================================================
+    function loadInlineFallback() {
+      const inlineData = {
+        "type": "FeatureCollection",
+        "features": [
+          { "type": "Feature", "geometry": { "type": "Point", "coordinates": [-92.0935, 46.7800] }, "properties": { "name": "Canal Park", "category": "Landmark", "address": "Canal Park, Duluth, MN 55802", "website": "http://www.canalparkduluth.com/", "description": "Canal Park is a tourist and recreation-oriented district of Duluth, situated across from Downtown and connected by the famous Aerial Lift Bridge to Park Point. Packed with shops, restaurants, and lakefront views.", "photo": "https://philipschwarzphotography.wordpress.com/wp-content/uploads/2017/06/north-breakwater-light-at-sunrise-canal-park-duluth-17-6-02328.jpg" } },
+          { "type": "Feature", "geometry": { "type": "Point", "coordinates": [-92.0929, 46.7785] }, "properties": { "name": "Aerial Lift Bridge", "category": "Landmark", "address": "601 S Lake Ave, Duluth, MN 55802", "website": "http://www.goduluthmn.com/best-duluth-attractions/aerial-lift-bridge/", "description": "The Aerial Lift Bridge is Duluth's most iconic landmark. Built in 1905 as the first transporter bridge in the US, it was converted to a vertical lift bridge in 1929–30 and continues to operate today, rising to let ships pass.", "photo": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/97/Aerial_lift_bridge_duluth_mn.jpg/1200px-Aerial_lift_bridge_duluth_mn.jpg" } },
+          { "type": "Feature", "geometry": { "type": "Point", "coordinates": [-92.2170, 46.7094] }, "properties": { "name": "Spirit Mountain Recreation Area", "category": "Outdoor", "address": "9500 Spirit Mountain Pl, Duluth, MN 55810", "website": "https://www.spiritmt.com/", "description": "A full-season recreational mountain featuring wintertime downhill skiing and snowboarding, plus a summertime adventure park with a mountain coaster, zip lines, and more.", "photo": "https://cdn.forumcomm.com/dims4/default/72eefac/2147483647/strip/true/crop/4860x3240+162+0/resize/840x560!/quality/90/?url=https%3A%2F%2Ffcc-cue-exports-brightspot.s3.us-west-2.amazonaws.com%2Fduluthnewstribune%2Fbinary%2FSpirit%20Mountain_binary_6507669.jpg" } },
+          { "type": "Feature", "geometry": { "type": "Point", "coordinates": [-92.0530, 46.8090] }, "properties": { "name": "Glensheen", "category": "History", "address": "3300 London Rd, Duluth, MN 55804", "website": "https://glensheen.org/", "description": "Glensheen, the Historic Congdon Estate, is a stunning 20,000 sq ft Jacobean-style mansion operated by UMD as a historic house museum. Tour the 39-room estate and beautifully landscaped grounds along Lake Superior.", "photo": "https://glensheen.org/wp-content/uploads/2018/07/SummerEveningBlog_Jul18_11-2000x1006.jpg" } },
+          { "type": "Feature", "geometry": { "type": "Point", "coordinates": [-92.0993, 46.7799] }, "properties": { "name": "Great Lakes Aquarium", "category": "Nature", "address": "353 Harbor Dr, Duluth, MN 55802", "website": "https://glaquarium.org/", "description": "Opened in 2000 on the Duluth waterfront, the Great Lakes Aquarium is a nonprofit dedicated to inspiring people to explore their connection to Lake Superior. Features live exhibits, otters, and hands-on experiences.", "photo": "https://cdn.forumcomm.com/dims4/default/6b0bdea/2147483647/strip/false/crop/4032x3024+0+0/resize/1486x1115!/quality/90/?url=https%3A%2F%2Fforum-communications-production-web.s3.us-west-2.amazonaws.com%2Fbrightspot%2Fac%2Fb6%2Fa1188a69466fb42b8c52dc7bfe2a%2Fimg-2424.jpg" } },
+          { "type": "Feature", "geometry": { "type": "Point", "coordinates": [-92.3958, 46.6630] }, "properties": { "name": "Jay Cooke State Park", "category": "Outdoor", "address": "780 MN-210, Carlton, MN 55718", "website": "https://www.dnr.state.mn.us/state_parks/park.html?id=spk00187#homepage", "description": "About 10 miles southwest of Duluth, Jay Cooke State Park protects the lower reaches of the St. Louis River. One of Minnesota's ten most visited parks, it features a dramatic 13-mile rocky gorge, suspension bridge, and scenic hiking trails.", "photo": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/27/Jay_Cooke_State_Park_suspension_bridge.jpg/1280px-Jay_Cooke_State_Park_suspension_bridge.jpg" } },
+          { "type": "Feature", "geometry": { "type": "Point", "coordinates": [-92.1038, 46.7840] }, "properties": { "name": "North Shore Scenic Railroad", "category": "History", "address": "506 W Michigan St, Duluth, MN 55802", "website": "http://www.northshorescenicrailroad.org/", "description": "Step aboard for seasonal narrated train tours that follow a historic transport corridor along Lake Superior's North Shore. Trips range from short scenic rides to longer themed excursions through stunning lakeside scenery.", "photo": "https://www.travelandleisure.com/thmb/GVa0FKnsJapf0pqxCetUL5gpyWg=/1500x0/filters:no_upscale():max_bytes(150000):strip_icc()/TAL-duluth-zephyr-train-DULUTHZEPHRY0524-a33e833e757546c1b39f238ecd9ad1f5.jpg" } },
+          { "type": "Feature", "geometry": { "type": "Point", "coordinates": [-92.1370, 46.7793] }, "properties": { "name": "Enger Tower", "category": "Landmark", "address": "1605 Enger Tower Dr, Duluth, MN 55806", "website": "https://duluthmn.gov/parks/parks-trails/parks-listing/enger-park/", "description": "A five-story, 80-foot stone observation tower built in 1939 atop Enger Hill, 531 feet above Lake Superior. A gift from Norwegian immigrant Bert Enger, it offers sweeping panoramic views of Duluth, Superior, and two states.", "photo": "https://visitduluth.com/wp-content/uploads/2023/10/DLTH_Web_TwoColumn_580x400_Weddings-EngerTower.jpg" } },
+          { "type": "Feature", "geometry": { "type": "Point", "coordinates": [-92.0455, 46.8267] }, "properties": { "name": "Hawk Ridge Nature Reserve", "category": "Nature", "address": "E Skyline Pkwy, Duluth, MN 55804", "website": "https://duluthmn.gov/parks/parks-trails/parks-listing/hawk-ridge/", "description": "A 235-acre nature reserve and bird observatory perched along East Skyline Parkway. Each fall, thousands of migratory raptors funnel along the Lake Superior shoreline here, making it one of the premier hawk-watching sites in North America.", "photo": "https://images.squarespace-cdn.com/content/v1/5d499015b59b160001513d29/1588060945631-2N2HHVX2YU994TF9H6PZ/HawkRidge05.png" } },
+          { "type": "Feature", "geometry": { "type": "Point", "coordinates": [-92.0786, 46.8068] }, "properties": { "name": "Chester Park", "category": "Outdoor", "address": "1800 East Skyline Parkway, Duluth, MN 55812", "website": "https://duluthmn.gov/parks/parks-trails/parks-listing/chester-park/", "description": "One of Duluth's oldest parks, established in 1891, winding through a forested ravine along Chester Creek. Trails pass small waterfalls and towering white pines, opening to Chester Bowl — a wooded valley with a ski hill and picnic areas.", "photo": "https://venture-out.s3.us-east-2.amazonaws.com/guide-images/1745685779716-media%3Fkey%3DAIzaSyCkpNVocP1IwgtIz1s4aaTb1GgwMdUtzBw%26maxHeightPx%3D800%26maxWidthPx%3D800" } }
+        ]
+      };
+
+      // Re-use the same L.geoJSON call with the inline data
+      L.geoJSON(inlineData, {
+        pointToLayer: function(feature, latlng) {
+          return L.marker(latlng, { icon: createIcon(feature.properties.category) });
+        },
+        onEachFeature: function(feature, layer) {
+          const props  = feature.properties;
+          const config = categoryConfig[props.category] || { color: '#555' };
+          layer.on('click', function() {
+            if (selectedLayer && selectedLayer !== layer)
+              selectedLayer.getElement()?.classList.remove('marker-selected');
+            layer.getElement()?.classList.add('marker-selected');
+            selectedLayer = layer;
+            map.panTo(layer.getLatLng());
+            showDetail(props, config);
+          });
+        }
+      }).addTo(map);
+    }
+
+  </script>
+
+</body>
+</html>
